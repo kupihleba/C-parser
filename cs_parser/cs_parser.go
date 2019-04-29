@@ -15,6 +15,8 @@ const (
 	FAILURE
 )
 
+const DEBUG = true
+
 func (s State) String() string {
 	switch s {
 	case GO:
@@ -40,8 +42,11 @@ var ExpToRule map[int]*Rule
 var Expressions []Expression
 
 func init() {
-	initGrammar()
-	//initSampleGrammar()
+	if DEBUG {
+		initSampleGrammar()
+	} else {
+		initGrammar()
+	}
 	initExpressions()
 }
 
@@ -54,12 +59,12 @@ func reset() {
 }
 
 type Rule struct {
-	name    string
-	exprSet []Expression
+	Name    string
+	ExprSet []Expression
 }
 
 func (r Rule) String() string {
-	return r.name
+	return r.Name
 }
 
 type Expression []Instance
@@ -84,15 +89,6 @@ func (a Action) String() string {
 	}
 }
 
-//func (this *Rule) matchSuffix(pattern []Instance) bool {
-//	for _, expr := range this.exprSet {
-//		if expr.matchSuffix(pattern) {
-//			return true
-//		}
-//	}
-//	return false
-//}
-
 func (this *Expression) matchSuffix(pattern []Instance) bool {
 	if len(pattern) < len(*this) {
 		return false
@@ -101,7 +97,6 @@ func (this *Expression) matchSuffix(pattern []Instance) bool {
 	for i, s := range *this {
 		if !equals(suffix[i], s) {
 			//fmt.Printf("%v != %v\n", suffix[i], s)
-
 			return false
 		} else {
 			//fmt.Printf("%v == %v\n", suffix[i], s)
@@ -115,27 +110,32 @@ func equals(a Instance, b Instance) bool {
 		if a.t == TERMINAL {
 			return a.id_or_ref.(int) == b.id_or_ref.(int)
 		} else if a.t == NONTERMINAL {
-			return a.id_or_ref.(*Rule).name == b.id_or_ref.(*Rule).name
+			return a.id_or_ref.(*Rule).Name == b.id_or_ref.(*Rule).Name
 		}
 	}
 	return false
 }
 
 func initGrammar() {
-	var CLASS_DECL, CLASS_BODY, USING, VAR_DECL, IDENT_CHAIN, ASSIGN, EXPRESSION, PROGRAM, METHOD, PREFIX, TYPE, NAMESPACE Rule
-	CLASS_BODY.name = "CLASS BODY"
-	CLASS_DECL.name = "CLASS DECLARATION"
-	USING.name = "USING KEYWORD"
-	VAR_DECL.name = "VARIABLE DECLARATION"
-	IDENT_CHAIN.name = "CHAIN OF IDENTIFICATORS"
-	ASSIGN.name = "ASSIGN EXPRESSION"
-	EXPRESSION.name = "EXPRESSION"
-	PROGRAM.name = "PROGRAM"
-	METHOD.name = "METHOD DECLARATION"
-	PREFIX.name = "PREFIX KEYWORD"
-	NAMESPACE.name = "NAMESPACE"
+	var PROGRAM, CLASS_DECL, CLASS_BODY, USING, VAR_DECL, IDENT_CHAIN, ASSIGN, EXPRESSION, METHOD, PREFIX, TYPE,
+		NAMESPACE, EXPRESSION_PROP_CHAIN, STATEMENT, EXPR_CHAIN, METHOD_BODY Rule
+	CLASS_BODY.Name = "CLASS BODY"
+	CLASS_DECL.Name = "CLASS DECLARATION"
+	USING.Name = "USING KEYWORD"
+	VAR_DECL.Name = "VARIABLE DECLARATION"
+	IDENT_CHAIN.Name = "CHAIN OF IDENTIFICATORS"
+	ASSIGN.Name = "ASSIGN EXPRESSION"
+	EXPRESSION.Name = "EXPRESSION"
+	PROGRAM.Name = "PROGRAM"
+	METHOD.Name = "METHOD DECLARATION"
+	PREFIX.Name = "PREFIX KEYWORD"
+	NAMESPACE.Name = "NAMESPACE"
+	EXPRESSION_PROP_CHAIN.Name = "EXPRESSION WITH PROPERTY OPERATIONS"
+	STATEMENT.Name = "STATEMENT"
+	EXPR_CHAIN.Name = "EXPRESSION CHAIN"
+	METHOD_BODY.Name = "METHOD BODY"
 
-	PROGRAM.exprSet = []Expression{
+	PROGRAM.ExprSet = []Expression{
 		{ref(&USING)},
 		{ref(&CLASS_DECL)},
 		{ref(&METHOD)},
@@ -147,95 +147,142 @@ func initGrammar() {
 		{ref(&PROGRAM), ref(&NAMESPACE)},
 		{ref(&PROGRAM), ref(&VAR_DECL)},
 	}
-	NAMESPACE.exprSet = []Expression{
+	NAMESPACE.ExprSet = []Expression{
 		{tok("namespace"), tok("IDENTIFIER"), tok("{"), tok("}")},
 		{tok("namespace"), tok("IDENTIFIER"), tok("{"), ref(&PROGRAM), tok("}")},
 	}
-	USING.exprSet = []Expression{
+	USING.ExprSet = []Expression{
 		{tok("using"), tok("IDENTIFIER"), tok(";")},
 	}
-	CLASS_DECL.exprSet = []Expression{
+	CLASS_DECL.ExprSet = []Expression{
 		{tok("class"), tok("IDENTIFIER"), tok("{"), ref(&CLASS_BODY), tok("}")},
 		{tok("class"), tok("IDENTIFIER"), tok("{"), tok("}")},
 	}
-	ASSIGN.exprSet = []Expression{
+
+	EXPR_CHAIN.ExprSet = []Expression{
+		{ref(&EXPRESSION)},
+		{ref(&EXPRESSION), tok(","), ref(&EXPR_CHAIN)},
+		{ref(&ASSIGN)},
+		{ref(&ASSIGN), tok(","), ref(&EXPR_CHAIN)},
+	}
+
+	ASSIGN.ExprSet = []Expression{
 		{tok("IDENTIFIER"), tok("="), ref(&EXPRESSION)},
 	}
-	EXPRESSION.exprSet = []Expression{
+	METHOD_BODY.ExprSet = []Expression{
+		{ref(&STATEMENT)},
+		{ref(&METHOD_BODY), ref(&STATEMENT)},
+	}
+
+	EXPRESSION.ExprSet = []Expression{
 		{tok("IDENTIFIER")},
 		{tok("NUMBER")},
+		{tok("STRING")},
 		{tok("("), ref(&EXPRESSION), tok(")")},
+		{tok("IDENTIFIER"), ref(&EXPRESSION_PROP_CHAIN)},
+		{tok("NUMBER"), ref(&EXPRESSION_PROP_CHAIN)},
+		{tok("("), ref(&EXPRESSION), ref(&EXPRESSION_PROP_CHAIN), tok(")")},
 	}
-	PREFIX.exprSet = []Expression{
+	STATEMENT.ExprSet = []Expression{
+		{ref(&EXPRESSION), tok(";")},
+		{ref(&ASSIGN), tok(";")},
+	}
+	PREFIX.ExprSet = []Expression{
 		{tok("static")},
 	}
-	CLASS_BODY.exprSet = []Expression{
+	CLASS_BODY.ExprSet = []Expression{
 		{ref(&VAR_DECL)},
 		{ref(&METHOD)},
 		{ref(&METHOD), ref(&CLASS_BODY)},
 		{ref(&VAR_DECL), ref(&CLASS_BODY)},
 	}
-	METHOD.exprSet = []Expression{
+	METHOD.ExprSet = []Expression{
 		{ref(&PREFIX), ref(&TYPE), tok("IDENTIFIER"), tok("("), ref(&VAR_DECL), tok(")"), tok("{"), tok("}")},
+		{ref(&PREFIX), ref(&TYPE), tok("IDENTIFIER"), tok("("), ref(&VAR_DECL), tok(")"), tok("{"), ref(&METHOD_BODY), tok("}")},
+
 		{ref(&PREFIX), ref(&TYPE), tok("IDENTIFIER"), tok("("), ref(&VAR_DECL), tok(")"), tok(";")},
 
 		{ref(&PREFIX), ref(&TYPE), tok("IDENTIFIER"), tok("("), tok(")"), tok("{"), tok("}")},
+		{ref(&PREFIX), ref(&TYPE), tok("IDENTIFIER"), tok("("), tok(")"), tok("{"), ref(&METHOD_BODY), tok("}")},
+
 		{ref(&PREFIX), ref(&TYPE), tok("IDENTIFIER"), tok("("), tok(")"), tok(";")},
 
 		{ref(&TYPE), tok("IDENTIFIER"), tok("("), ref(&VAR_DECL), tok(")"), tok("{"), tok("}")},
+		{ref(&TYPE), tok("IDENTIFIER"), tok("("), ref(&VAR_DECL), tok(")"), tok("{"), ref(&METHOD_BODY), tok("}")},
 		{ref(&TYPE), tok("IDENTIFIER"), tok("("), ref(&VAR_DECL), tok(")"), tok(";")},
 
 		{ref(&TYPE), tok("IDENTIFIER"), tok("("), tok(")"), tok("{"), tok("}")},
+		{ref(&TYPE), tok("IDENTIFIER"), tok("("), tok(")"), tok("{"), ref(&METHOD_BODY), tok("}")},
 		{ref(&TYPE), tok("IDENTIFIER"), tok("("), tok(")"), tok(";")},
 	}
-	TYPE.exprSet = []Expression{
+	TYPE.ExprSet = []Expression{
 		{tok("string")},
 		{tok("int")},
 		{tok("void")},
 		{tok("IDENTIFIER")},
 	}
-	VAR_DECL.exprSet = []Expression{
+
+	EXPRESSION_PROP_CHAIN.ExprSet = []Expression{
+		{tok("."), tok("IDENTIFIER")},
+		{tok("("), tok(")")},
+		{tok("("), ref(&EXPR_CHAIN), tok(")")},
+
+		{ref(&EXPRESSION_PROP_CHAIN), tok("."), tok("IDENTIFIER")},
+		{ref(&EXPRESSION_PROP_CHAIN), tok("["), ref(&EXPRESSION), tok("]")},
+		{ref(&EXPRESSION_PROP_CHAIN), tok("("), ref(&EXPR_CHAIN), tok(")")},
+		{ref(&EXPRESSION_PROP_CHAIN), tok("("), tok(")")},
+
+		{tok("["), ref(&EXPRESSION), tok("]")},
+		{ref(&EXPRESSION_PROP_CHAIN), tok("["), ref(&EXPRESSION), tok("]")},
+	}
+	VAR_DECL.ExprSet = []Expression{
 		{ref(&TYPE), ref(&IDENT_CHAIN), tok(";")},
 	}
-	IDENT_CHAIN.exprSet = []Expression{
+	IDENT_CHAIN.ExprSet = []Expression{
 		{tok("IDENTIFIER")},
 		{tok("IDENTIFIER"), tok(","), ref(&IDENT_CHAIN)},
 		{ref(&ASSIGN)},
 		{ref(&ASSIGN), tok(","), ref(&IDENT_CHAIN)},
 	}
 	fmt.Printf("%v", Grammar)
-	Grammar = append(Grammar, PROGRAM, CLASS_DECL, CLASS_BODY, USING, VAR_DECL, METHOD, PREFIX, TYPE, IDENT_CHAIN, ASSIGN, EXPRESSION, NAMESPACE)
+	Grammar = append(Grammar, PROGRAM, CLASS_DECL, CLASS_BODY, USING, VAR_DECL, IDENT_CHAIN, ASSIGN, EXPRESSION, METHOD,
+		PREFIX, TYPE, NAMESPACE, EXPRESSION_PROP_CHAIN, STATEMENT, EXPR_CHAIN, METHOD_BODY)
 }
 
+/**
+ * Grammar for DEBUG mode is here:
+ */
 func initSampleGrammar() {
-	var S, A Rule
-	S.name = "S"
-	A.name = "A"
-	S.exprSet = []Expression{
-		{ref(&A), ref(&S)},
-		{tok("a")},
+	var S, B Rule
+	S.Name = "S"
+	S.ExprSet = []Expression{ // S -> "a" | B
+		{tok("a"), ref(&B)},
+		//{ref(&C)},
 	}
-	A.exprSet = []Expression{
-		{tok("b"), ref(&S), ref(&A)},
+	B.Name = "B"
+	B.ExprSet = []Expression{ // B -> "a" B | "b"
+		{tok("a"), ref(&B)},
 		{tok("b")},
 	}
-	Grammar = append(Grammar, S, A)
-}
+	//C.ExprSet = []Expression{
+	//	{tok("b")},
+	//}
 
-//func expression(context *Rule, instance ...Instance) {
-//
-//}
+	Grammar = append(Grammar, S, B) // ADD ALL RULES HERE!!
+}
 
 func initExpressions() {
 	ExpToRule = make(map[int]*Rule)
 	c := 0
 	for i := 0; i < len(Grammar); i++ {
-		Expressions = append(Expressions, Grammar[i].exprSet...)
-		for j := 0; j < len(Grammar[i].exprSet); j++ {
+		Expressions = append(Expressions, Grammar[i].ExprSet...)
+		for j := 0; j < len(Grammar[i].ExprSet); j++ {
 			ExpToRule[c] = &Grammar[i]
+			fmt.Printf("%s(%d): %s -> %d\n", ExpToRule[c].Name, j, ExpToRule[c].ExprSet, c)
 			c++
 		}
 	}
+	fmt.Printf("%d expressions loaded\n", c)
 }
 
 func ref(ref *Rule) Instance {
@@ -265,22 +312,20 @@ const (
 
 type Instance struct {
 	id_or_ref interface{}
-	//id int
-	//ref *Rule
-	t Type
+	t         Type
 }
 
 func (i Instance) String() string {
-	if i.nonTerminal() {
-		return i.id_or_ref.(*Rule).name
+	if i.NonTerminal() {
+		return i.id_or_ref.(*Rule).Name
 	}
 	return cs_lexer.TokToStr(i.id_or_ref.(int))
 }
 
-func (this *Instance) nonTerminal() bool {
+func (this *Instance) NonTerminal() bool {
 	return this.t == NONTERMINAL
 }
-func (this *Instance) isTerminal() bool {
+func (this *Instance) IsTerminal() bool {
 	return this.t == TERMINAL
 }
 
@@ -338,24 +383,26 @@ func goExpression(expr_n int) {
 	l2 = append(l2, Action{expr_n, RULE_MATCHED}) // l2 push
 }
 
-func rollback() {
+func rollback() Action {
 	last_reduce := l2[len(l2)-1] // get previous reduce expression
 	if last_reduce.cmd != RULE_MATCHED {
-		panic("call for rollback on terminal")
+		panic("call for rollback on invalid rule")
 	}
 
 	l1 = l1[:len(l1)-1]                                // pop l1 rule
 	l1 = append(l1, Expressions[last_reduce.value]...) // push old expressions back
 
 	l2 = l2[:len(l2)-1]
+
+	return last_reduce
 }
 
 func step() {
 	switch state {
-	case GO:
+	case GO: // Q state
 		if reachedTheEnd() &&
-			len(l1) == 1 &&
-			l1[0].nonTerminal() {
+			len(l1) == 1 && // and non terminal is on top of the stack
+			l1[0].NonTerminal() { // we may want to compare non terminal with S
 			state = SUCCESS
 			return
 		}
@@ -369,49 +416,35 @@ func step() {
 				state = BACKTRACK
 			}
 		} else { // if we found a suitable expr
-			//println("MATCHED RULE:", ExpToRule[expr].name)
+			//println("MATCHED RULE:", ExpToRule[expr].Name)
 			goExpression(expr)
 		}
 
 		break
-	case BACKTRACK:
+	case BACKTRACK: // B state
 		if len(l1) == 0 {
 			state = FAILURE
 			return
 		}
 
-		if l1[len(l1)-1].isTerminal() { // if last element is a terminal
+		if l1[len(l1)-1].IsTerminal() { // if last element is a terminal
 			throwToken() // throw it away
 			//println("Throw token!")
 			return
 		}
 
-		// The last element is non terminal
+		// We reach this point in case
+		// the last element is non terminal
 
-		lastExpr := l2[len(l2)-1]
-		if lastExpr.cmd == READ_TOKEN {
-			panic("UNEXPECTED READ_TOKEN")
-		}
-
-		l1 = l1[:len(l1)-1]                             // pop l1 rule
-		l1 = append(l1, Expressions[lastExpr.value]...) // push old expressions back
-
-		l2 = l2[:len(l2)-1]
-		expr, err := findSuitableExpressionAfter(lastExpr.value)
+		lastReduce := rollback() // we rollback changes
+		expr, err := findSuitableExpressionAfter(lastReduce.value)
 
 		if err == nil { // if alternative rule exists
-			l1 = l1[:len(l1)-len(Expressions[expr])] // pop last elements, that matched rule
-			l1 = append(l1, ref(ExpToRule[expr]))
-
-			//l2 = l2[:len(l2)-1] // l2.pop()
-			l2 = append(l2, Action{expr, RULE_MATCHED}) // l2 push
+			goExpression(expr)
 			state = GO
-		} else {
-			// ROLLBACK TEMP CHANGES
-			if pos < len(Tokens) {
-				readToken()
-				state = GO
-			}
+		} else if pos < len(Tokens) { // ROLLBACK TEMP CHANGES
+			readToken()
+			state = GO
 		}
 
 	case SUCCESS:
@@ -430,8 +463,14 @@ const PARSE_LIMIT = 1000000
 func Parse(tokens []int) {
 	reset()
 	Tokens = tokens
-	for i := 1; state != SUCCESS && state != FAILURE; i++ {
+	var i int
+	for i = 1; state != SUCCESS && state != FAILURE; i++ {
 		step()
+		if DEBUG || i%1000000 == 0 {
+			printState(i)
+		}
+	}
+	if !DEBUG {
 		printState(i)
 	}
 }

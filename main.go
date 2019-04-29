@@ -10,6 +10,8 @@ import (
 	"parser/cs_parser"
 )
 
+const DEBUG = true
+
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -56,19 +58,21 @@ func main() {
 	if len(path) != 1 {
 		panic("No argument file supplied!")
 	}
-	//tokens, err := tokenize("sample.txt")
-	//check(err)
-	//cs_parser.Parse(tokens)
+	if DEBUG {
+		tokens, err := tokenize("sample.txt")
+		check(err)
+		cs_parser.Parse(tokens)
+	} else {
 
-	files, err := ioutil.ReadDir(path[0])
-	check(err)
+		files, err := ioutil.ReadDir(path[0])
+		check(err)
 
-	for _, file := range files {
-		if !file.IsDir() {
-			tokens, err := tokenize(path[0] + "/" + file.Name())
-			check(err)
-			cs_parser.Parse(tokens)
-			//break
+		for _, file := range files {
+			if !file.IsDir() {
+				tokens, err := tokenize(path[0] + "/" + file.Name())
+				check(err)
+				cs_parser.Parse(tokens)
+			}
 		}
 	}
 }

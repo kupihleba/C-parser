@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const DEBUG = true
+
 // Called at package initialization. Creates the lexer and populates token lists.
 func init() {
 	initTokens()
@@ -23,40 +25,49 @@ var TokenIdentifiers map[string]int // A map from the token names to their int i
 var Lexer *lex.Lexer                // The lexer object. Use this to construct a Scanner
 
 func initTokens() {
-	Literals = []string{
-		"[",
-		"]",
-		"{",
-		"}",
-		"=",
-		",",
-		".",
-		":",
-		";",
-		"(",
-		")",
-		"-",
-		"+",
-		//"a",
-		//"b",
+	if DEBUG {
+		Literals = []string{
+
+			"a",
+			"b",
+			"c",
+		}
+	} else {
+		Literals = []string{
+			"[",
+			"]",
+			"{",
+			"}",
+			"=",
+			",",
+			".",
+			":",
+			";",
+			"(",
+			")",
+			"-",
+			"+",
+		}
+
+		Keywords = []string{
+			"using",
+			"namespace",
+			"class",
+			"static",
+			"void",
+			// TYPES
+			"int",
+			"string",
+			"new",
+		}
+		Tokens = []string{
+			"IDENTIFIER",
+			"COMMENT",
+			"NUMBER",
+			"STRING",
+		}
+		Tokens = append(Tokens, Keywords...)
 	}
-	Keywords = []string{
-		"using",
-		"namespace",
-		"class",
-		"static",
-		"void",
-		// TYPES
-		"int",
-		"string",
-		"new",
-	}
-	Tokens = []string{
-		"IDENTIFIER",
-		"COMMENT",
-		"NUMBER",
-	}
-	Tokens = append(Tokens, Keywords...)
 	Tokens = append(Tokens, Literals...)
 	TokenIdentifiers = make(map[string]int)
 	for i, tok := range Tokens {
@@ -84,6 +95,14 @@ func initLexer() (*lex.Lexer, error) {
 		r := "\\" + strings.Join(strings.Split(literal, ""), "\\")
 		lexer.Add([]byte(r), token(literal))
 	}
+	if DEBUG {
+		err := lexer.Compile()
+		if err == nil {
+			return lexer, nil
+		} else {
+			return nil, err
+		}
+	}
 	for _, keyword := range Keywords {
 		lexer.Add([]byte(strings.ToLower(keyword)), token(keyword))
 	}
@@ -92,7 +111,7 @@ func initLexer() (*lex.Lexer, error) {
 	lexer.Add([]byte(`//[^\n]*\n?`), skip)                             // SKIP COMMENTS
 	lexer.Add([]byte(`/\*([^*]|\r|\n|(\*+([^*/]|\r|\n)))*\*+/`), skip) // SKIP COMMENTS
 	lexer.Add([]byte(`([a-z]|[A-Z])([a-z]|[A-Z]|[0-9]|_)*`), token("ID"))
-	lexer.Add([]byte(`"([^\\"]|(\\.))*"`), token("ID"))
+	lexer.Add([]byte(`"([^\\"]|(\\.))*"`), token("STRING"))
 	lexer.Add([]byte("( |\t|\n|\r)+"), skip)
 
 	err := lexer.Compile()
